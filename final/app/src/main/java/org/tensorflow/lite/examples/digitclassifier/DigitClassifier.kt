@@ -19,6 +19,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks.call
+import com.google.firebase.ml.modeldownloader.CustomModel
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.Callable
@@ -56,19 +57,21 @@ class DigitClassifier(private val context: Context) {
     var interpreter: Interpreter
     if (model is ByteBuffer) {
       interpreter = Interpreter(model, options)
-    } else {
-      interpreter = Interpreter(model as File, options)
-    }
-    // Read input shape from model file
-    val inputShape = interpreter.getInputTensor(0).shape()
-    inputImageWidth = inputShape[1]
-    inputImageHeight = inputShape[2]
-    modelInputSize = FLOAT_TYPE_SIZE * inputImageWidth * inputImageHeight * PIXEL_SIZE
+    } else if (model is CustomModel) {
+      model.file?.let { modelFile ->
+        interpreter = Interpreter(modelFile, options)
+        // Read input shape from model file
+        val inputShape = interpreter.getInputTensor(0).shape()
+        inputImageWidth = inputShape[1]
+        inputImageHeight = inputShape[2]
+        modelInputSize = FLOAT_TYPE_SIZE * inputImageWidth * inputImageHeight * PIXEL_SIZE
 
-    // Finish interpreter initialization
-    this.interpreter = interpreter
-    isInitialized = true
-    Log.d(TAG, "Initialized TFLite interpreter.")
+        // Finish interpreter initialization
+        this.interpreter = interpreter
+        isInitialized = true
+        Log.d(TAG, "Initialized TFLite interpreter.")
+      }
+    }
   }
 
   private fun classify(bitmap: Bitmap): String {
@@ -131,7 +134,7 @@ class DigitClassifier(private val context: Context) {
   }
 
   private fun getOutputString(output: FloatArray): String {
-    val maxIndex = output.indices.maxBy { output[it] } ?: -1
+    val maxIndex = output.indices.maxByOrNull { output[it] } ?: -1
     return "Prediction Result: %d\nConfidence: %2f".format(maxIndex, output[maxIndex])
   }
 
