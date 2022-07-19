@@ -55,21 +55,27 @@ class DigitClassifier(private val context: Context) {
     val options = Interpreter.Options()
     options.setUseNNAPI(true)
     var interpreter: Interpreter
-    if (model is ByteBuffer) {
-      interpreter = Interpreter(model, options)
-    } else if (model is CustomModel) {
-      model.file?.let { modelFile ->
-        interpreter = Interpreter(modelFile, options)
-        // Read input shape from model file
-        val inputShape = interpreter.getInputTensor(0).shape()
-        inputImageWidth = inputShape[1]
-        inputImageHeight = inputShape[2]
-        modelInputSize = FLOAT_TYPE_SIZE * inputImageWidth * inputImageHeight * PIXEL_SIZE
+    when (model) {
+      is ByteBuffer -> {
+        interpreter = Interpreter(model, options)
+      }
+      is CustomModel -> {
+        model.file?.let { modelFile ->
+          interpreter = Interpreter(modelFile, options)
+          // Read input shape from model file
+          val inputShape = interpreter.getInputTensor(0).shape()
+          inputImageWidth = inputShape[1]
+          inputImageHeight = inputShape[2]
+          modelInputSize = FLOAT_TYPE_SIZE * inputImageWidth * inputImageHeight * PIXEL_SIZE
 
-        // Finish interpreter initialization
-        this.interpreter = interpreter
-        isInitialized = true
-        Log.d(TAG, "Initialized TFLite interpreter.")
+          // Finish interpreter initialization
+          this.interpreter = interpreter
+          isInitialized = true
+          Log.d(TAG, "Initialized TFLite interpreter.")
+        }
+      }
+      else -> {
+        Log.e(TAG, "Unexpected model type downloaded.")
       }
     }
   }
