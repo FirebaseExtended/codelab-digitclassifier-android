@@ -29,9 +29,10 @@ import com.google.android.gms.tasks.Task
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.ml.common.modeldownload.FirebaseModelDownloadConditions
-import com.google.firebase.ml.common.modeldownload.FirebaseModelManager
-import com.google.firebase.ml.custom.FirebaseCustomRemoteModel
+import com.google.firebase.ml.modeldownloader.CustomModel
+import com.google.firebase.ml.modeldownloader.CustomModelDownloadConditions
+import com.google.firebase.ml.modeldownloader.DownloadType
+import com.google.firebase.ml.modeldownloader.FirebaseModelDownloader
 import com.google.firebase.perf.FirebasePerformance
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
@@ -101,7 +102,7 @@ class MainActivity : AppCompatActivity() {
           val modelName = remoteConfig.getString("model_name")
           val downloadTrace = firebasePerformance.newTrace("download_model")
           downloadTrace.start()
-          downloadModel("mnist_v2")
+          downloadModel("mnist_v1")
             .addOnSuccessListener {
               downloadTrace.stop()
             }
@@ -119,35 +120,21 @@ class MainActivity : AppCompatActivity() {
     remoteConfig.setConfigSettingsAsync(configSettings)
   }
 
-  private fun downloadModel(modelName: String): Task<Void> {
-    val remoteModel = FirebaseCustomRemoteModel.Builder(modelName).build()
-    val firebaseModelManager = FirebaseModelManager.getInstance()
-    return firebaseModelManager
-      .isModelDownloaded(remoteModel)
-      .continueWithTask { task ->
-        // Create update condition if model is already downloaded, otherwise create download
-        // condition.
-        val conditions = if (task.result != null && task.result == true) {
-          FirebaseModelDownloadConditions.Builder()
-            .requireWifi()
-            .build() // Update condition that requires wifi.
-        } else {
-          FirebaseModelDownloadConditions.Builder().build(); // Download condition.
-        }
-        firebaseModelManager.download(remoteModel, conditions)
-      }
-      .addOnSuccessListener {
-        firebaseModelManager.getLatestModelFile(remoteModel)
-          .addOnCompleteListener {
-            val model = it.result
-            if (model == null) {
-              showToast("Failed to get model file.")
-            } else {
-              showToast("Downloaded remote model: $modelName")
-              digitClassifier.initialize(model)
-            }
+  private fun downloadModel(modelName: String): Task<CustomModel> {
+    val conditions = CustomModelDownloadConditions.Builder()
+    .requireWifi()
+    .build()
+    return FirebaseModelDownloader.getInstance()
+        .getModel(modelName, DownloadType.LOCAL_MODEL, conditions)
+        .addOnCompleteListener {
+          val model = it.result
+          if (model == null) {
+            showToast("Failed to get model file.")
+          } else {
+            showToast("Downloaded remote model: $modelName")
+            digitClassifier.initialize(model)
           }
-      }
+        }
       .addOnFailureListener {
         showToast("Model download failed for $modelName, please check your connection.")
       }
