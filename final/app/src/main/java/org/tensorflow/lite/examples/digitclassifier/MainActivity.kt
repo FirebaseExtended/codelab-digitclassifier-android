@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
           val modelName = remoteConfig.getString("model_name")
           val downloadTrace = firebasePerformance.newTrace("download_model")
           downloadTrace.start()
-          downloadModel("mnist_v1")
+          downloadModel(modelName)
             .addOnSuccessListener {
               downloadTrace.stop()
             }
